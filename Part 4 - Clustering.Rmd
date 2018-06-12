@@ -1,0 +1,126 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+library(feather)
+library(viridis)
+library(flowMeans)
+library(FlowSOM)
+```
+
+```{r}
+set.seed(123)
+```
+
+```{r}
+df1 <- read_feather('data/xs1.feather')
+```
+
+```{r}
+colnames(df1)
+```
+
+```{r}
+df <- df1 %>%
+select(matches('(CD|Ig|HLA).*'))
+```
+
+```{r}
+dim(df)
+```
+
+### K-means
+
+```{r}
+kmeans.df <- kmeans(df, centers=40)
+```
+
+```{r}
+pca.df <- prcomp(df, center=TRUE, scale=TRUE, rank=2)
+```
+
+```{r}
+ggplot(as.data.frame(pca.df$x),
+       aes(x=PC1, y=PC2,
+           color=as.factor(kmeans.df$cluster))) +
+geom_point(size=1) +
+guides(color=FALSE)
+```
+
+```{r}
+colnames(df)
+```
+
+```{r}
+ggplot(df,
+       aes(x=CD4_BUV661, y=CD8_PerCP.Cy55,
+           color=as.factor(kmeans.df$cluster))) +
+geom_point(size=1) +
+guides(color=FALSE)
+```
+
+#### Sanity check
+
+```{r}
+unif <- matrix(runif(20000,0,1),10000,2)
+```
+
+```{r}
+dim(unif)
+```
+
+```{r}
+kmeans.data <- kmeans(unif, centers=40)
+```
+
+```{r}
+ggplot(as.data.frame(unif),
+       aes(x=V1, y=V2,
+           color=as.factor(kmeans.data$cluster))) +
+geom_point(size=1) +
+guides(color=FALSE)
+```
+
+### Using flowMeans: A flow-specific cluster method
+
+```{r}
+flowMeans.df <- flowMeans(df, MaxN = 20)
+```
+
+```{r}
+summary(flowMeans.df)
+```
+
+```{r}
+head(pca.df$x)
+```
+
+```{r}
+data <- as.data.frame(pca.df$x)
+
+ggplot(data,
+       aes(x=PC1, y=PC2, color=as.factor(flowMeans.df@Label))) +
+geom_point(size=1) +
+guides(color=FALSE)
+```
+
+#### Sanity check
+
+```{r}
+flowMeans.unif <- flowMeans(unif)
+```
+
+```{r}
+summary(flowMeans.unif)
+```
+
+```{r}
+ggplot(as.data.frame(unif),
+       aes(x=V1, y=V2,
+           color=as.factor(flowMeans.unif@Label))) +
+geom_point(size=1) +
+guides(color=FALSE)
+```

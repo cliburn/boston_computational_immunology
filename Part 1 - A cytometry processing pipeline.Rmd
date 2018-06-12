@@ -1,0 +1,303 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+library(cytofkit)
+```
+
+```{r}
+## Loading the FCS data:
+set.seed(100)
+files <- list.files('data' , pattern='AMJ_5L.*.fcs', full=TRUE)
+```
+
+```{r}
+files
+```
+
+```{r}
+## Extract the expression matrix with transformation
+
+data_transformed <- cytof_exprsMerge(
+    fcsFiles = files,
+    comp=FALSE,
+    transformMethod = "cytofAsinh",
+    mergeMethod = "all"
+)
+```
+
+```{r}
+help(cytof_exprsMerge)
+```
+
+```{r}
+head(data_transformed[ ,1:3], 3)
+```
+
+```{r}
+tail(data_transformed[ ,1:3], 3)
+```
+
+```{r}
+# subsample data to complete before universe collapses
+n <- 1000
+data_transformed <- as.data.frame(data_transformed) %>%
+sample_n(n, replace = FALSE)
+```
+
+```{r}
+## use clustering algorithm to detect cell subsets
+
+## run PhenoGraph
+cluster_PhenoGraph <- cytof_cluster(
+    xdata = data_transformed,
+    method = "Rphenograph"
+)
+```
+
+```{r}
+## reduce dimensionality with t-sne
+
+data_transformed_tsne <- cytof_dimReduction(
+    data=data_transformed,
+    method = "tsne"
+)
+```
+
+```{r}
+## run ClusterX
+
+cluster_ClusterX <- cytof_cluster(
+    ydata = data_transformed_tsne,
+    method="ClusterX"
+)
+```
+
+```{r}
+## run Cluster_DenseVM
+
+cluster_DensVM <- cytof_cluster(
+    xdata = data_transformed,
+    ydata = data_transformed_tsne,
+    method = "DensVM"
+)
+```
+
+```{r}
+## run FlowSOM with cluster number 25
+
+cluster_FlowSOM <- cytof_cluster(
+    xdata = data_transformed,
+    method = "FlowSOM",
+    FlowSOM_k = 25
+)
+```
+
+```{r}
+## combine data
+
+data_all <- cbind(
+    data_transformed,
+    data_transformed_tsne,
+    PhenoGraph = cluster_PhenoGraph,
+    ClusterX=cluster_ClusterX,
+    ClusterDensVM=cluster_DensVM,
+    FlowSOM=cluster_FlowSOM
+)
+data_all <- as.data.frame(data_all)
+```
+
+```{r}
+## PhenoGraph plot on tsne
+
+cytof_clusterPlot(
+    data=data_all,
+    xlab="tsne_1",
+    ylab="tsne_2",
+    cluster="PhenoGraph",
+    sampleLabel = FALSE)
+```
+
+```{r}
+## PhenoGraph cluster heatmap
+
+PhenoGraph_cluster_median <- aggregate(. ~ PhenoGraph,
+                                       data = data_all, median)
+cytof_heatmap(PhenoGraph_cluster_median,
+              baseName = "PhenoGraph Cluster Median")
+```
+
+```{r}
+## ClusterX plot on tsne
+
+cytof_clusterPlot(
+    data=data_all,
+    xlab="tsne_1",
+    ylab="tsne_2",
+    cluster="ClusterX",
+    sampleLabel = FALSE
+)
+```
+
+```{r}
+## ClusterX cluster heatmap
+
+ClusterX_cluster_median <- aggregate(. ~ ClusterX,
+                                     data = data_all, median)
+cytof_heatmap(ClusterX_cluster_median,
+              baseName = "ClusterX Cluster Median")
+```
+
+```{r}
+## FlowSOM plot on tsne
+
+cytof_clusterPlot(
+    data=data_all,
+    xlab="tsne_1",
+    ylab="tsne_2",
+    cluster="FlowSOM",
+    sampleLabel = FALSE
+)
+```
+
+```{r}
+## FlowSOM cluster heatmap
+
+FlowSOM_cluster_median <- aggregate(. ~ FlowSOM,
+                                    data = data_all,
+                                    median)
+cytof_heatmap(
+    FlowSOM_cluster_median,
+    baseName = "FlowSOM Cluster Median")
+```
+
+```{r}
+## Inference of PhenoGraph cluster relatedness
+
+PhenoGraph_progression <- cytof_progression(
+    data = data_transformed,
+    cluster = cluster_PhenoGraph,
+    method="isomap",
+    clusterSampleSize = 50,
+    sampleSeed = 5
+)
+```
+
+```{r}
+p_d <- data.frame(PhenoGraph_progression$sampleData,
+                  PhenoGraph_progression$progressionData,
+                  cluster = PhenoGraph_progression$sampleCluster,
+                  check.names = FALSE)
+
+## cluster relatedness plot
+cytof_clusterPlot(
+    data=p_d,
+    xlab="isomap_1",
+    ylab="isomap_2",
+    cluster="cluster",
+    sampleLabel = FALSE
+)
+```
+
+```{r}
+## marker expression profile
+markers <- c("Blue A-A<CD4 PerCP Cy55>",
+             "Red A-A<CD8 APC Cy7>")
+
+cytof_colorPlot(data=p_d,
+                xlab="isomap_1",
+                ylab="isomap_2",
+                zlab = markers[1],
+                limits = range(p_d))
+```
+
+```{r}
+cytof_colorPlot(
+    data=p_d,
+    xlab="isomap_1",
+    ylab="isomap_2",
+    zlab = markers[2],
+    limits = range(p_d)
+)
+```
+
+```{r}
+cytof_progressionPlot(
+    data=p_d,
+    markers=markers,
+    orderCol="isomap_1",
+    clusterCol = "cluster"
+)
+```
+
+```{r}
+## Inference of ClusterX cluster relatedness
+ClusterX_progression <- cytof_progression(
+    data = data_transformed,
+    cluster = cluster_ClusterX,
+    method="isomap",
+    clusterSampleSize = 30,
+    sampleSeed = 3
+)
+```
+
+```{r}
+c_d <- data.frame(ClusterX_progression$sampleData,
+                  ClusterX_progression$progressionData,
+                  cluster=ClusterX_progression$sampleCluster,
+                  check.names = FALSE)
+
+## cluster relatedness plot
+cytof_clusterPlot(
+    data=c_d,
+    xlab="isomap_1",
+    ylab="isomap_2",
+    cluster="cluster",
+    sampleLabel = FALSE
+)
+```
+
+```{r}
+## marker expression profile
+cytof_colorPlot(data=c_d,
+                xlab="isomap_1",
+                ylab="isomap_2",
+                zlab = markers[1],
+                limits = range(c_d))
+```
+
+```{r}
+cytof_colorPlot(
+    data=c_d,
+    xlab="isomap_1",
+    ylab="isomap_2",
+    zlab = markers[2],
+    limits = range(c_d)
+)
+```
+
+```{r}
+cytof_progressionPlot(
+    data=c_d,
+    markers,
+    orderCol="isomap_1",
+    clusterCol = "cluster"
+)
+```
+
+```{r}
+## save analysis results to FCS file
+cytof_addToFCS(
+    data_all,
+    rawFCSdir='data',
+    analyzedFCSdir="analysed_FCS",
+    transformed_cols = c("tsne_1", "tsne_2"),
+    cluster_cols = c("PhenoGraph",
+                     "ClusterX",
+                     "ClusterDensVM",
+                     "FlowSOM")
+)
+```

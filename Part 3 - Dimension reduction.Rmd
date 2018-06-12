@@ -1,0 +1,92 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+library(feather)
+library(viridis)
+library(tsne)
+```
+
+```{r}
+df1 <- read_feather('data/xs1.feather')
+df2 <- read_feather('data/xs2.feather')
+df3 <- read_feather('data/xs3.feather')
+```
+
+#### Drop scatter channels
+
+```{r}
+df1 <- df1 %>% select(matches('(CD|Ig|HLA).*'))
+df2 <- df2 %>% select(matches('(CD|Ig|HLA).*'))
+df3 <- df3 %>% select(matches('(CD|Ig|HLA).*'))
+```
+
+```{r}
+pca_ <- prcomp(df1, center=TRUE, scale=TRUE, rank=2)
+```
+
+```{r}
+summary(pca_)
+```
+
+```{r}
+plot(pca_)
+```
+
+```{r}
+pca <- as.data.frame(pca_$x)
+```
+
+```{r}
+head(pca, n=3)
+```
+
+```{r}
+ggplot(pca, aes(x=PC1, y=PC2)) +
+geom_point(shape='.')
+```
+
+```{r}
+mds <- as.data.frame(cmdscale(dist(df1[1:1000,]), k = 2))
+```
+
+```{r}
+head(mds, n=3)
+```
+
+```{r}
+options(repr.plot.width = 4, repr.plot.height = 4)
+```
+
+```{r}
+ggplot(mds, aes(x=V1, y=V2)) +
+geom_point(shape='.')
+```
+
+```{r}
+df0 <- bind_rows(df1[1:1000,], df2[1:1000,], df3[1:1000,])
+```
+
+```{r}
+dim(df0)
+```
+
+```{r}
+tsne0_ <- tsne(df0, k = 2, perplexity = 30)
+```
+
+```{r}
+k <- 11
+colnames(df0)[k]
+```
+
+```{r}
+ggplot(as.data.frame(tsne0_),
+       aes(x=V1, y=V2, color=df0[,k])) +
+geom_point(size=0.2) +
+scale_color_viridis() +
+guides(color=FALSE)
+```

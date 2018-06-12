@@ -1,0 +1,33 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+### Install from command line
+
+```{bash}
+sudo apt-get install r-bioc-biocgenerics
+```
+
+### Install CRAN packages
+
+```{r}
+install.packages('devtools')
+install.packages('tidyverse')
+```
+
+### Install GitHub pakcages
+
+```{r}
+devtools::install_github("wesm/feather/R")
+```
+
+### Install BioConductor packages
+
+```{r}
+source("https://bioconductor.org/biocLite.R")
+biocLite("cytofkit")
+biocLite("flowCore")
+biocLite("flowiz")
+biocLite("flowMeans")
+```
